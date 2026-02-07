@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>UNC FALLEN DETECTOR</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+        }
+        h1 {
+            color: #764ba2;
+        }
+        .event-card {
+            border: 1px solid #ddd;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            background: #fafafa;
+        }
+        .event-card.critical {
+            border-left: 4px solid #ff0000;
+        }
+        .refresh-btn {
+            background: #764ba2;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .refresh-btn:hover {
+            background: #5e3a82;
+        }
+        .test-btn {
+            background: #28a745;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-btn:hover {
+            background: #218838;
+        }
+        .danger-btn {
+            background: #dc3545;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .danger-btn:hover {
+            background: #c82333;
+        }
+        .warning-btn {
+            background: #ffc107;
+            color: #000;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .warning-btn:hover {
+            background: #e0a800;
+        }
+        .button-section {
+            margin: 20px 0;
+            padding: 15px;
+            background: #f8f9fa;
+            border-radius: 5px;
+        }
+        .contacts-display {
+            background: #e3f2fd;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            border-left: 4px solid #2196f3;
+        }
+        .alert-box {
+            background: #fff3cd;
+            border: 2px solid #ffc107;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            display: none;
+        }
+        .alert-box.show {
+            display: block;
+        }
+        .status-log {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 15px 0;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .log-entry {
+            padding: 8px;
+            margin: 5px 0;
+            border-radius: 3px;
+        }
+        .log-entry.emergency {
+            background: #ffe6e6;
+            border-left: 3px solid #ff0000;
+        }
+        .log-entry.sms {
+            background: #e6f7ff;
+            border-left: 3px solid #0066cc;
+        }
+        .log-entry.success {
+            background: #e6ffe6;
+            border-left: 3px solid #00cc00;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚨 Fall Detection Dashboard</h1>
+        
+        <div class="contacts-display">
+            <h4>📱 Emergency Contacts</h4>
+            <p><strong>Emergency Hotline:</strong> 112 (Ambulance)</p>
+            <p><strong>Contact 1:</strong> +91-9113673770 (Family)</p>
+            <p><strong>Contact 2:</strong> +91-9845188259 (Doctor)</p>
+        </div>
+        
+        <div class="alert-box" id="alertBox">
+            <strong>⚠️ FALL DETECTED!</strong>
+            <p>Emergency services will be contacted in <span id="countdown">30</span> seconds...</p>
+            <button onclick="cancelAlert()" class="warning-btn">Cancel Alert</button>
+        </div>
+        
+        <div class="button-section">
+            <h3>📊 Dashboard Controls:</h3>
+            <button class="refresh-btn" onclick="loadEvents()">Refresh Events</button>
+            <button class="danger-btn" onclick="clearAllEvents()">Clear All Events</button>
+        </div>
+        
+        <div class="button-section">
+            <h3>🧪 Test Scenarios:</h3>
+            <button class="danger-btn" onclick="testHighImpactFall()">High Impact Fall</button>
+            <button class="test-btn" onclick="testLowImpactFall()">Low Impact Fall</button>
+            <button class="danger-btn" onclick="testHeartAttack()">Heart Attack Scenario</button>
+            <button class="test-btn" onclick="testNormalActivity()">Normal Activity</button>
+        </div>
+        
+        <div class="button-section">
+            <h3>📞 Communication Tests:</h3>
+            <button class="warning-btn" onclick="testEmergencyCall()">Test Emergency Call</button>
+            <button class="warning-btn" onclick="testSMSAlert()">Test SMS Alert</button>
+            <button class="test-btn" onclick="testFullEmergencyProtocol()">Full Emergency Protocol</button>
+        </div>
+        
+        <h3>System Status Log:</h3>
+        <div class="status-log" id="statusLog">
+            <div class="log-entry success">System initialized and ready</div>
+        </div>
+        
+        <h3>Recorded Fall Events:</h3>
+        <div id="events-list"></div>
+    </div>
+
+    <script>
+        let countdownTimer = null;
+        const emergencyContacts = [
+            { name: 'Family', number: '+91-9113673770' },
+            { name: 'Doctor', number: '+91-9845188159' }
+        ];
+        const emergencyHotline = '112';
+        
+        async function loadEvents() {
+            try {
+                const response = await fetch('/api/events');
+                const data = await response.json();
+                
+                const eventsList = document.getElementById('events-list');
+                eventsList.innerHTML = '';
+                
+                if (data.events.length === 0) {
+                    eventsList.innerHTML = '<p>No fall events recorded yet.</p>';
+                    return;
+                }
+                
+                data.events.forEach(event => {
+                    const card = document.createElement('div');
+                    card.className = 'event-card critical';
+                    card.innerHTML = `
+                        <h3>Event #${event[0]}</h3>
+                        <p><strong>Time:</strong> ${event[1]}</p>
+                        <p><strong>Device ID:</strong> ${event[2]}</p>
+                        <p><strong>Location:</strong> ${event[3]}, ${event[4]}</p>
+                        <p><strong>Heart Rate:</strong> ${event[5]} bpm</p>
+                        <p><strong>Severity:</strong> ${event[7]}</p>
+                        <p><strong>Notes:</strong> ${event[8]}</p>
+                    `;
+                    eventsList.appendChild(card);
+                });
+                
+                addStatusLog('✅ Events loaded successfully', 'success');
+            } catch (error) {
+                console.error('Error loading events:', error);
+                addStatusLog('❌ Error loading events from server', 'emergency');
+            }
+        }
+        
+        async function sendFallEvent(fallData) {
+            try {
+                const response = await fetch('/api/fall-detected', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(fallData)
+                });
+                
+                const data = await response.json();
+                addStatusLog(`✅ Event #${data.event_id} saved to database`, 'success');
+                loadEvents();
+                return true;
+            } catch (error) {
+                addStatusLog('⚠️ Server offline - alerts will be sent anyway', 'sms');
+                return false;
+            }
+        }
+        
+        function testHighImpactFall() {
+            const fallData = {
+                device_id: 'TEST_DEVICE_001',
+                latitude: 12.9716,
+                longitude: 77.5946,
+                heart_rate: 140,
+                acceleration_data: 'X:4.5,Y:-3.2,Z:2.8',
+                fall_severity: 'HIGH',
+                notes: 'High impact fall detected - immediate response required'
+            };
+            
+            addStatusLog('🔴 TEST: High Impact Fall Detected (Acceleration: 4.5 G)', 'emergency');
+            addStatusLog('📍 Location: 10.9716°N, 74.5946°E (Bangalore)', 'sms');
+            addStatusLog('❤️ Heart Rate: 140 bpm (Elevated)', 'emergency');
+            
+            sendFallEvent(fallData);
+            showAlert();
+        }
+        
+        function testLowImpactFall() {
+            const fallData = {
+                device_id: 'TEST_DEVICE_001',
+                latitude: 12.9716,
+                longitude: 77.5946,
+                heart_rate: 75,
+                acceleration_data: 'X:2.2,Y:-1.5,Z:1.8',
+                fall_severity: 'LOW',
+                notes: 'Low impact fall detected - monitoring required'
+            };
+            
+            addStatusLog('🟡 TEST: Low Impact Fall Detected (Acceleration: 2.2 G)', 'success');
+            addStatusLog('📍 Location: 12.9716°N, 77.5946°E', 'sms');
+            addStatusLog('❤️ Heart Rate: 75 bpm (Normal)', 'success');
+            
+            sendFallEvent(fallData);
+            showAlert();
+        }
+        
+        function testHeartAttack() {
+            const fallData = {
+                device_id: 'TEST_DEVICE_001',
+                latitude: 12.9716,
+                longitude: 77.5946,
+                heart_rate: 35,
+                acceleration_data: 'X:3.1,Y:-2.4,Z:2.2',
+                fall_severity: 'HIGH',
+                notes: 'Cardiac emergency - abnormal heart rate detected'
+            };
+            
+            addStatusLog('🔴 TEST: Abnormal Heart Rate Detected (35 bpm)', 'emergency');
+            addStatusLog('🚨 Critical cardiac event - Immediate response required', 'emergency');
+            addStatusLog('📍 Location: 12.9716°N, 77.5946°E', 'sms');
+            
+            sendFallEvent(fallData);
+            showAlert();
+        }
+        
+        function testNormalActivity() {
+            addStatusLog('✅ TEST: Normal Activity Detected', 'success');
+            addStatusLog('📊 Heart Rate: 75 bpm | Acceleration: 1.0 G | Status: Healthy', 'success');
+            addStatusLog('ℹ️ All vitals within normal range', 'success');
+        }
+        
+        function testEmergencyCall() {
+            addStatusLog('📞 Calling Emergency Hotline: ' + emergencyHotline, 'emergency');
+            setTimeout(() => {
+                addStatusLog('📞 Call connected to Ambulance Service (112)', 'emergency');
+                addStatusLog('🚑 Emergency responders dispatched to location', 'emergency');
+                addStatusLog('⏱️ Estimated arrival time: 8-12 minutes', 'sms');
+            }, 1500);
+        }
+        
+        function testSMSAlert() {
+            addStatusLog('📱 Sending SMS alerts to emergency contacts...', 'sms');
+            
+            emergencyContacts.forEach((contact, index) => {
+                setTimeout(() => {
+                    const message = `🚨 EMERGENCY ALERT!
+Fall detected at 12.9716°N, 77.5946°E
+Heart Rate: 65 bpm
+Time: ${new Date().toLocaleTimeString()}
+Please respond immediately!`;
+                    
+                    addStatusLog(`✉️ SMS sent to ${contact.name} (${contact.number})`, 'sms');
+                    addStatusLog(`   Message: "🚨 EMERGENCY ALERT! Fall detected..."`, 'sms');
+                }, (index + 1) * 800);
+            });
+            
+            setTimeout(() => {
+                addStatusLog('✅ All SMS alerts sent successfully', 'success');
+            }, emergencyContacts.length * 800 + 500);
+        }
+        
+        function testFullEmergencyProtocol() {
+            addStatusLog('🚨 INITIATING FULL EMERGENCY PROTOCOL', 'emergency');
+            addStatusLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'emergency');
+            
+            setTimeout(() => {
+                addStatusLog('Step 1/3: Fall detection confirmed', 'emergency');
+            }, 500);
+            
+            setTimeout(() => {
+                testEmergencyCall();
+            }, 1500);
+            
+            setTimeout(() => {
+                addStatusLog('Step 2/3: Emergency call initiated', 'emergency');
+            }, 3500);
+            
+            setTimeout(() => {
+                testSMSAlert();
+            }, 4000);
+            
+            setTimeout(() => {
+                addStatusLog('Step 3/3: SMS alerts dispatched', 'emergency');
+                addStatusLog('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'success');
+                addStatusLog('✅ EMERGENCY PROTOCOL COMPLETED', 'success');
+            }, 6000);
+        }
+        
+        function showAlert() {
+            const alertBox = document.getElementById('alertBox');
+            alertBox.classList.add('show');
+            
+            let timeLeft = 30;
+            const countdownElement = document.getElementById('countdown');
+            
+            if (countdownTimer) clearInterval(countdownTimer);
+            
+            countdownTimer = setInterval(() => {
+                timeLeft--;
+                countdownElement.textContent = timeLeft;
+                
+                if (timeLeft <= 0) {
+                    clearInterval(countdownTimer);
+                    alertBox.classList.remove('show');
+                    triggerEmergencyResponse();
+                }
+            }, 1000);
+        }
+        
+        function cancelAlert() {
+            if (countdownTimer) clearInterval(countdownTimer);
+            document.getElementById('alertBox').classList.remove('show');
+            addStatusLog('✅ Alert cancelled by user - False alarm', 'success');
+        }
+        
+        function triggerEmergencyResponse() {
+            addStatusLog('⚠️ No response from user - Triggering emergency protocol', 'emergency');
+            testFullEmergencyProtocol();
+        }
+        
+        function addStatusLog(message, type = '') {
+            const log = document.getElementById('statusLog');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry' + (type ? ' ' + type : '');
+            entry.textContent = `[${new Date().toLocaleTimeString()}] ${message}`;
+            log.insertBefore(entry, log.firstChild);
+        }
+        
+        function clearAllEvents() {
+            if (confirm('Are you sure you want to clear all recorded events?')) {
+                document.getElementById('events-list').innerHTML = '<p>No fall events recorded yet.</p>';
+                addStatusLog('🗑️ All events cleared from display', 'success');
+            }
+        }
+        
+        // Load events on page load
+        loadEvents();
+        
+        // Auto-refresh every 30 seconds
+        setInterval(loadEvents, 30000);
+    </script>
+</body>
+</html>
