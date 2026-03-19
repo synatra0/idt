@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/",
-      "destination": "/templates/dashboard.html"
+      "destination": "aislop.html"
     }
   ]
 }
